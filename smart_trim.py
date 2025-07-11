@@ -5,11 +5,10 @@ from scipy.signal import correlate
 import shutil
 
 # Setup paths
-episodes_dir = "test_episodes"
+episodes_dir = "episodes"
 output_dir = "smart_trimmed"
 removed_dir = "removed"
 jingle_path = "jingle_sample.mp3"
-threshold = 0.99 # for logging
 
 os.makedirs(output_dir, exist_ok=True)
 os.makedirs(removed_dir, exist_ok=True)
@@ -25,33 +24,27 @@ def find_jingle_start(main_audio):
     # Normalize formats
     segment = main_audio.set_channels(1).set_frame_rate(44100)
 
-    segment_samples = np.array(segment.get_array_of_samples())
-    jingle_samples = np.array(jingle_snippet.get_array_of_samples())
+    segment_samples = np.array(segment.get_array_of_samples(), dtype=np.float64)
+    jingle_samples = np.array(jingle_snippet.get_array_of_samples(), dtype=np.float64)
 
     if len(segment_samples) < len(jingle_samples):
         return None
 
     print("start correlation")
+    # Use scipy correlate (much faster with FFT)
     correlation = correlate(segment_samples, jingle_samples, mode='valid')
+    
+    # Fix normalization: normalize by the maximum absolute value
+    max_abs_val = np.max(np.abs(correlation))
+    if max_abs_val > 0:
+        correlation = correlation / max_abs_val
+    
     print("end correlation")
 
     # Use absolute value to consider both positive and negative correlations
     abs_correlation = np.abs(correlation)
-
-    normalized_correlation = correlation / np.max(abs_correlation)
-
     
-    #just for debugging
-    high_matches = np.where(normalized_correlation >= threshold)[0]
-    match_times_sec = (high_matches / segment.frame_rate).round(2)
-    match_times_str = ", ".join([
-        f"{mt:.2f}s (corr={normalized_correlation[idx]:.2f})"
-        for mt, idx in zip(match_times_sec, high_matches)
-    ])
-    print(f"Top matches: [{match_times_str}]")
-    print(f"Top matches: {len(high_matches)}")
-    
-    best_index = np.argmax(normalized_correlation)
+    best_index = np.argmax(abs_correlation)
 
     start_ms = int((best_index / segment.frame_rate) * 1000)
     return start_ms
@@ -70,8 +63,8 @@ for filename in sorted(os.listdir(episodes_dir)):
         if jingle_start:
             trimmed = audio[:jingle_start]
             removed = audio[jingle_start:]
-            # trimmed.export(out_path, format="mp3")
-            # removed.export(removed_path, format="mp3")
+            trimmed.export(out_path, format="mp3")
+            removed.export(removed_path, format="mp3")
             
             original_duration = len(audio) / 1000
             trimmed_duration = len(trimmed) / 1000
