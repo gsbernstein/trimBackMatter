@@ -1,34 +1,29 @@
-# Re-run the trimming detection script now that we have the jingle sample
 import os
 from pydub import AudioSegment
-from pydub.utils import make_chunks
 import numpy as np
 from scipy.signal import correlate
 import shutil
 
 # Setup paths
-episodes_dir = "episodes"
+episodes_dir = "test_episodes"
 output_dir = "smart_trimmed"
 removed_dir = "removed"
 jingle_path = "jingle_sample.mp3"
-threshold = 0.7  # Lowered threshold slightly
+threshold = 0.99 # for logging
 
 os.makedirs(output_dir, exist_ok=True)
 os.makedirs(removed_dir, exist_ok=True)
 
-# Load the jingle sample - use the BEGINNING of the sample (first 5 seconds)
-full_jingle = AudioSegment.from_file(jingle_path).set_channels(1).set_frame_rate(44100)
-jingle = full_jingle[:5000]  # Use first 5 seconds instead of 2 seconds
-jingle_array = np.array(jingle.get_array_of_samples())
-jingle_length_ms = len(jingle)
+# Load the jingle sample - use the first 5 seconds)
+full_jingle = AudioSegment.from_file(jingle_path)
+jingle_snippet = full_jingle[:5000].set_channels(1).set_frame_rate(44100)  # Use first 5 seconds
 
 print(f"Full jingle sample: {len(full_jingle)/1000:.2f}s")
-print(f"Using jingle snippet: {len(jingle)/1000:.2f}s from the beginning")
+print(f"Using jingle snippet: {len(jingle_snippet)/1000:.2f}s starting from the beginning")
 
 def find_jingle_start(main_audio):
     # Normalize formats
     segment = main_audio.set_channels(1).set_frame_rate(44100)
-    jingle_snippet = jingle.set_channels(1).set_frame_rate(44100)
 
     segment_samples = np.array(segment.get_array_of_samples())
     jingle_samples = np.array(jingle_snippet.get_array_of_samples())
@@ -37,38 +32,27 @@ def find_jingle_start(main_audio):
         return None
 
     correlation = correlate(segment_samples, jingle_samples, mode='valid')
-    correlation = correlation / np.max(np.abs(correlation))  # normalize
 
     # Use absolute value to consider both positive and negative correlations
     abs_correlation = np.abs(correlation)
 
-    # Focus on matches in the last 100 seconds of the episode
-    expected_start_time = len(segment) - 100000  # 100 seconds from end in ms
-    expected_start_samples = int((expected_start_time / 1000) * segment.frame_rate)
-    search_end_samples = len(segment_samples) - len(jingle_samples)  # Don't go past the end
-    
-    # Find all matches above threshold in the target region (using absolute correlation)
-    if expected_start_samples < len(abs_correlation):
-        target_correlation = abs_correlation[expected_start_samples:]
-        high_matches = np.where(target_correlation >= threshold)[0] + expected_start_samples
-    else:
-        high_matches = np.where(abs_correlation >= threshold)[0]
-    
-    # Find the best match in the target region (using absolute correlation)
-    if len(high_matches) > 0:
-        best_index = high_matches[np.argmax(abs_correlation[high_matches])]
-        best_value = abs_correlation[best_index]
-        original_value = correlation[best_index]
-    else:
-        # Fall back to global best match
-        best_index = np.argmax(abs_correlation)
-        best_value = abs_correlation[best_index]
-        original_value = correlation[best_index]
+    normalized_correlation = correlation / np.max(abs_correlation)
 
-    if best_value >= threshold:
-        start_ms = int((best_index / segment.frame_rate) * 1000)
-        return start_ms
-    return None
+    
+    #just for debugging
+    high_matches = np.where(normalized_correlation >= threshold)[0]
+    match_times_sec = (high_matches / segment.frame_rate).round(2)
+    match_times_str = ", ".join([
+        f"{mt:.2f}s (corr={normalized_correlation[idx]:.2f})"
+        for mt, idx in zip(match_times_sec, high_matches)
+    ])
+    print(f"Top matches: [{match_times_str}]")
+    print(f"Top matches: {len(high_matches)}")
+    
+    best_index = np.argmax(normalized_correlation)
+
+    start_ms = int((best_index / segment.frame_rate) * 1000)
+    return start_ms
 
 # Process all episodes
 results = []
@@ -84,8 +68,8 @@ for filename in sorted(os.listdir(episodes_dir)):
         if jingle_start:
             trimmed = audio[:jingle_start]
             removed = audio[jingle_start:]
-            trimmed.export(out_path, format="mp3")
-            removed.export(removed_path, format="mp3")
+            # trimmed.export(out_path, format="mp3")
+            # removed.export(removed_path, format="mp3")
             
             original_duration = len(audio) / 1000
             trimmed_duration = len(trimmed) / 1000
