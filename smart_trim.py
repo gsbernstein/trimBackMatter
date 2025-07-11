@@ -86,23 +86,25 @@ def process_episode(filename, jingle_snippet):
             removed = audio[jingle_start:]
             
             # Export trimmed and removed portions
-            trimmed.export(out_path, format="mp3")
-            removed.export(removed_path, format="mp3")
+            # trimmed.export(out_path, format="mp3")
+            # removed.export(removed_path, format="mp3")
             
             # Calculate durations
             removed_duration = len(removed) / 1000
-            
+            print(" " * 80, end="\r")  # Clear the line
             print(f"{filename}: removed {removed_duration:.1f}s")
             return (filename, jingle_start / 1000, removed_duration)
         else:
             # No jingle found, copy original file
             shutil.copy(in_path, out_path)
             duration = len(audio) / 1000
+            print(" " * 80, end="\r")  # Clear the line
             print(f"{filename}: {duration:.1f}s (no jingle detected, copied as-is)")
             return (filename, None, 0)
             
     except Exception as e:
-        print(f"Error processing {filename}: {e}")
+        print(" " * 80, end="\r")  # Clear the line
+        print(f"{filename}: Error: {e}")
         return (filename, "ERROR", 0)
 
 def main():
@@ -138,9 +140,9 @@ def main():
     for filename, jingle_time, removed_dur in results:
         if jingle_time == "ERROR":
             print(f"  {filename}: ERROR during processing")
-            failed_trims += 1   
+            failed_trims += 1
         elif jingle_time:
-            print(f"  {filename}: trimmed at {jingle_time:.1f}s, removed {removed_dur:.1f}s")
+            print(f"  {filename:<40} trimmed at {jingle_time:>6.1f}s, removed {removed_dur:>6.1f}s")
             successful_trims += 1
         else:
             print(f"  {filename}: no jingle detected")
