@@ -31,7 +31,9 @@ def find_jingle_start(main_audio):
     if len(segment_samples) < len(jingle_samples):
         return None
 
+    print("start correlation")
     correlation = correlate(segment_samples, jingle_samples, mode='valid')
+    print("end correlation")
 
     # Use absolute value to consider both positive and negative correlations
     abs_correlation = np.abs(correlation)
