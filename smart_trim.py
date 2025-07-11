@@ -18,6 +18,7 @@ REMOVED_DIR = "removed"
 JINGLE_PATH = "jingle_sample.mp3"
 JINGLE_SNIPPET_MS = 5000  # Use first 5 seconds of jingle sample
 MIN_JINGLE_POSITION_S = 60  # Jingle should be at least 1 minute into episode
+BAR_LENGTH = 30
 
 def load_jingle_sample(jingle_path, snippet_ms):
     """Load and prepare the jingle sample for correlation matching."""
@@ -91,20 +92,20 @@ def process_episode(filename, jingle_snippet):
             
             # Calculate durations
             removed_duration = len(removed) / 1000
-            print(" " * 80, end="\r")  # Clear the line
-            print(f"{filename}: removed {removed_duration:.1f}s")
+            print(" " * 100, end="\r")  # Clear the line
+            print(f"  {filename:<40} removed {removed_duration:.1f}s")
             return (filename, jingle_start / 1000, removed_duration)
         else:
             # No jingle found, copy original file
             shutil.copy(in_path, out_path)
             duration = len(audio) / 1000
-            print(" " * 80, end="\r")  # Clear the line
-            print(f"{filename}: {duration:.1f}s (no jingle detected, copied as-is)")
+            print(" " * 100, end="\r")  # Clear the line
+            print(f"  {filename}: {duration:.1f}s (no jingle detected, copied as-is)")
             return (filename, None, 0)
             
     except Exception as e:
-        print(" " * 80, end="\r")  # Clear the line
-        print(f"{filename}: Error: {e}")
+        print(" " * 100, end="\r")  # Clear the line
+        print(f"  {filename}: Error: {e}")
         return (filename, "ERROR", 0)
 
 def main():
@@ -127,7 +128,10 @@ def main():
     print(f"Processing {len(episode_files)} episodes...")
     
     for i, filename in enumerate(episode_files, 1):
-        print(f"[{i}/{len(episode_files)}] Processing {filename}...")
+        progress = i / len(episode_files)
+        filled_length = int(BAR_LENGTH * progress)
+        bar = '█' * filled_length + '-' * (BAR_LENGTH - filled_length)
+        print(f"[{i}/{len(episode_files)}] |{bar}| Processing {filename}...", end="\r")
         result = process_episode(filename, jingle_snippet)
         results.append(result)
     
