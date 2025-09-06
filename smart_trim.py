@@ -87,8 +87,8 @@ def process_episode(filename, jingle_snippet):
             removed = audio[jingle_start:]
             
             # Export trimmed and removed portions
-            # trimmed.export(out_path, format="mp3")
-            # removed.export(removed_path, format="mp3")
+            trimmed.export(out_path, format="mp3")
+            removed.export(removed_path, format="mp3")
             
             # Calculate durations
             removed_duration = len(removed) / 1000
