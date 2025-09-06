@@ -76,6 +76,17 @@ def process_episode(filename, jingle_snippet):
     out_path = os.path.join(OUTPUT_DIR, filename)
     removed_path = os.path.join(REMOVED_DIR, filename)
     
+    # Check if already processed
+    if os.path.exists(out_path) and os.path.getsize(out_path) > 1000:  # At least 1KB
+        try:
+            print(" " * 100, end="\r")  # Clear the line
+            print(f"  {filename:<40} already trimmed (skipped)")
+            return (filename, "SKIPPED", 0)
+            
+        except:
+            # If we can't read the files, just skip
+            pass
+    
     try:
         # Load and normalize audio
         audio = AudioSegment.from_file(in_path).set_channels(1).set_frame_rate(44100)
@@ -141,10 +152,14 @@ def main():
     
     successful_trims = 0
     failed_trims = 0
+    skipped_trims = 0
     for filename, jingle_time, removed_dur in results:
         if jingle_time == "ERROR":
             print(f"  {filename}: ERROR during processing")
             failed_trims += 1
+        elif jingle_time == "SKIPPED":
+            print(f"  {filename:<40} already trimmed (skipped)")
+            skipped_trims += 1
         elif jingle_time:
             print(f"  {filename:<40} trimmed at {jingle_time:>6.1f}s, removed {removed_dur:>6.1f}s")
             successful_trims += 1
@@ -153,6 +168,8 @@ def main():
             failed_trims += 1
     
     print(f"\nSuccessfully trimmed: {successful_trims}/{len(results)} episodes")
+    if skipped_trims > 0:
+        print(f"Skipped (already processed): {skipped_trims}/{len(results)} episodes")
     if failed_trims > 0:
         print(f"FAILED TO TRIM: {failed_trims}/{len(results)} episodes")
     print(f"Trimmed files saved to: {OUTPUT_DIR}/")
